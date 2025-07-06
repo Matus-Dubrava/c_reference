@@ -83,6 +83,12 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
+    int opt = 1;
+    if (setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1) {
+        perror("setsockopt SO_REUSEADDR failed");
+        exit(EXIT_FAILURE);
+    }
+
     if (bind(sfd, (struct sockaddr*)&addr, sizeof(addr)) != 0) {
         perror("bind");
         exit(EXIT_FAILURE);
