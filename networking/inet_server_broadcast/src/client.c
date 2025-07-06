@@ -1,5 +1,6 @@
 #include "arpa/inet.h"
 #include "netinet/in.h"
+#include "stdbool.h"
 #include "stdio.h"
 #include "stdlib.h"
 #include "string.h"
@@ -27,13 +28,15 @@ int main() {
         perror("failed to connect to server");
     }
 
-    size_t buf_size = 1024;
-    char buf[buf_size];
-    ssize_t n = recv(cfd, buf, buf_size, MSG_NOSIGNAL);
-    if (n > 0) {
-        buf[n] = '\0';
-        printf("received: %s\n", buf);
-    } else {
-        printf("nothing\n");
+    while (true) {
+        size_t buf_size = 1024;
+        char buf[buf_size];
+        ssize_t n = recv(cfd, buf, buf_size, MSG_NOSIGNAL);
+        if (n > 0) {
+            buf[n] = '\0';
+            printf("received: %s\n", buf);
+        } else {
+            printf("nothing\n");
+        }
     }
 }
