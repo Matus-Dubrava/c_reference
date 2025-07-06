@@ -1,5 +1,5 @@
 CC = clang
-CLFAGS = -Wall -Werror -Wextra -g
+CFLAGS = -Wall -Werror -Wextra -g
 BUILD_DIR = build
 SERV_SRC = src/server.c
 CLIENT_SRC = src/client.c
