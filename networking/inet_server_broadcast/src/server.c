@@ -23,7 +23,8 @@ void* increment_counter(void* counter) {
 }
 
 typedef struct HandlerCtx {
-    int cfd;
+    int* client_fds;
+    size_t* n_clients;
     struct timespec* wait_time;
     size_t* counter;
 } HandlerCtx;
@@ -35,10 +36,12 @@ void* handle_connection(void* handler_ctx) {
         char buf[1024];
         sprintf(buf, "%zu", *ctx->counter);
 
-        ssize_t n = send(ctx->cfd, buf, strlen(buf), MSG_NOSIGNAL);
-        if (n == -1) {
-            break;
+        for (size_t i = 0; i < *ctx->n_clients; ++i) {
+            ssize_t n =
+                send(ctx->client_fds[i], buf, strlen(buf), MSG_NOSIGNAL);
+            (void)n;
         }
+
         nanosleep(ctx->wait_time, NULL);
     }
 
@@ -56,8 +59,12 @@ int main() {
 
     size_t n_clients = 0;
     size_t max_clients = 10;
-    pthread_t handler_ts[max_clients];
-    HandlerCtx handler_ctxs[max_clients];
+    pthread_t handler_t;
+    int* client_fds = malloc(max_clients * sizeof(int));
+    if (!client_fds) {
+        perror("clients_fds memory alloc");
+        exit(EXIT_FAILURE);
+    }
 
     char* IP = "127.0.0.1";
     struct sockaddr_in addr;
@@ -90,29 +97,31 @@ int main() {
     wait_time.tv_nsec = 0;
     wait_time.tv_sec = 1;
 
+    HandlerCtx ctx = {.counter = &counter,
+                      .client_fds = client_fds,
+                      .n_clients = &n_clients,
+                      .wait_time = &wait_time};
+
+    if (pthread_create(&handler_t, NULL, handle_connection, &ctx) == -1) {
+        perror("pthread create handler thread");
+        exit(EXIT_FAILURE);
+    }
+
     while (true) {
         int cfd = accept(sfd, NULL, NULL);
         if (cfd == -1) {
             perror("client socket");
         }
-        printf("client connected\n");
-
         if (n_clients < max_clients) {
-            handler_ctxs[n_clients] = (HandlerCtx){
-                .cfd = cfd, .counter = &counter, .wait_time = &wait_time};
-
-            if (pthread_create(&handler_ts[n_clients], NULL, handle_connection,
-                               &handler_ctxs[n_clients]) == -1) {
-                perror("handler thread create");
-            }
-            n_clients++;
+            client_fds[n_clients++] = cfd;
+            printf("client connected\n");
+        } else {
+            printf("connection is not available\n");
         }
     }
 
-    for (size_t i = 0; i < n_clients; ++i) {
-        if (pthread_join(handler_ts[i], NULL) != 0) {
-            perror("handler thread join");
-        }
+    if (pthread_join(handler_t, NULL) != 0) {
+        perror("handler thread join");
     }
 
     if (pthread_join(counter_t, NULL) != 0) {
