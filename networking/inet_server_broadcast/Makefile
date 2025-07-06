@@ -20,4 +20,4 @@ client:
 client-run: client
 	./$(CLIENT_OUT)
 
-.PHONY: server
+.PHONY: server server-run client client-run
