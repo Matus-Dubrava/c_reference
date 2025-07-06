@@ -8,12 +8,13 @@
 #include "time.h"
 
 int main() {
+    char* IP = "127.0.0.1";
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
 
     addr.sin_port = htons(10000);
     addr.sin_family = AF_INET;
-    if (inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr) <= 0) {
+    if (inet_pton(AF_INET, IP, &addr.sin_addr) <= 0) {
         perror("invalid IP address");
         exit(EXIT_FAILURE);
     }
@@ -43,10 +44,14 @@ int main() {
         if (cfd == -1) {
             perror("client socket");
         }
+        printf("client connected\n");
 
         while (true) {
             char* msg = "message";
             ssize_t n = send(cfd, msg, strlen(msg), MSG_NOSIGNAL);
+            if (n == -1) {
+                break;
+            }
             nanosleep(&wait_time_seconds, NULL);
         }
     }

@@ -13,4 +13,11 @@ server:
 server-run: server
 	./$(SERV_OUT)
 
+client:
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CLIENT_SRC) $(CFLAGS) -o $(CLIENT_OUT)
+
+client-run: client
+	./$(CLIENT_OUT)
+
 .PHONY: server
