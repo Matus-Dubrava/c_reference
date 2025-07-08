@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "*.tn": "plaintext",
+        "in.h": "c",
+        "pthread.h": "c"
+    }
+}
