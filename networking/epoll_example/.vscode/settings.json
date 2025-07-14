@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "*.tn": "plaintext",
+        "stdio.h": "c"
+    }
+}
