@@ -159,10 +159,25 @@ void etrim_whitespaces(char* str) {
     *(end + 1) = '\0';
 }
 
-void process_message(char* msg, int sock, Client* client, Clients* clients) {
+void broadcast(char* msg, Client* client, Clients* clients) {
+    size_t len = strlen(msg) + 4 + strlen(client->name);
+    char buf[len];
+    memset(&buf, 0, sizeof(buf));
+    sprintf(buf, "[%s] %s\n", client->name, msg);
+
+    for (size_t i = 0; i < clients->len; ++i) {
+        if (clients->items[i]->sock != client->sock) {
+            ssize_t nsent = send(clients->items[i]->sock, buf, len, 0);
+            if (nsent < 0) {
+                perror("send");
+            }
+        }
+    }
+}
+
+void process_message(char* msg, Client* client, Clients* clients) {
     printf("[%s]: %s\n", client->name, msg);
-    (void)clients;
-    (void)sock;
+    broadcast(msg, client, clients);
 }
 
 void handle_request(int sock, Clients* clients) {
@@ -185,7 +200,7 @@ void handle_request(int sock, Clients* clients) {
                            client->name);
                 }
             } else {
-                process_message(buf, sock, client, clients);
+                process_message(buf, client, clients);
             }
         } else if (nrecv == 0) {
             printf("client disconnected\n");
