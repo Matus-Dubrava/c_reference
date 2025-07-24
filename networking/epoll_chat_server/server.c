@@ -131,6 +131,25 @@ Client* clients_get_by_socket(Clients* clients, int sock) {
     return NULL;
 }
 
+void client_disconnect(Client* client, Clients* clients) {
+    bool move = false;
+
+    for (size_t i = 0; i < clients->len; ++i) {
+        if (clients->items[i]->sock == client->sock) {
+            move = true;
+            client_destroy(client);
+        }
+
+        if (move && i < clients->len) {
+            clients->items[i] = clients->items[i + 1];
+        }
+    }
+
+    if (move) {
+        clients->len--;
+    }
+}
+
 int setnonblocking(int sock) {
     int flags = fcntl(sock, F_GETFL);
     if (flags == -1) {
@@ -204,6 +223,10 @@ void handle_request(int sock, Clients* clients) {
             }
         } else if (nrecv == 0) {
             printf("client disconnected\n");
+            Client* client = clients_get_by_socket(clients, sock);
+            if (client) {
+                client_disconnect(client, clients);
+            }
             close(sock);
             break;
         } else {
