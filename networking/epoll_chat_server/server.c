@@ -131,12 +131,17 @@ Client* clients_get_by_socket(Clients* clients, int sock) {
     return NULL;
 }
 
-void client_disconnect(Client* client, Clients* clients) {
+void client_disconnect(Client* client, Clients* clients, int epollfd) {
     bool move = false;
+
+    if (epoll_ctl(epollfd, EPOLL_CTL_DEL, client->sock, NULL) == -1) {
+        perror("epoll_ctl: EPOLL_CTL_DEL");
+    }
 
     for (size_t i = 0; i < clients->len; ++i) {
         if (clients->items[i]->sock == client->sock) {
             move = true;
+            close(client->sock);
             client_destroy(client);
         }
 
@@ -194,12 +199,23 @@ void broadcast(char* msg, Client* client, Clients* clients) {
     }
 }
 
-void process_message(char* msg, Client* client, Clients* clients) {
+void process_message(char* msg,
+                     Client* client,
+                     Clients* clients,
+                     int epollfd,
+                     bool* disconnected_out) {
     printf("[%s]: %s\n", client->name, msg);
-    broadcast(msg, client, clients);
+
+    if (strncmp(msg, MSG_EXIT, strlen(MSG_EXIT)) == 0) {
+        printf("[%s] disconnected\n", client->name);
+        client_disconnect(client, clients, epollfd);
+        *disconnected_out = true;
+    } else {
+        broadcast(msg, client, clients);
+    }
 }
 
-void handle_request(int sock, Clients* clients) {
+void handle_request(int sock, Clients* clients, int epollfd) {
     size_t buf_size = 1024;
     char buf[buf_size];
     memset(&buf, 0, buf_size);
@@ -212,22 +228,25 @@ void handle_request(int sock, Clients* clients) {
             // this lookup should be faster than linear array search since we
             // are doing it on every request
             Client* client = clients_get_by_socket(clients, sock);
-            if (client && (strncmp(client->name, "", 1) == 0)) {
+            if (client && (strlen(client->name) == 0)) {
                 bool overwrite_name = false;
                 if (client_update_name(client, buf, overwrite_name)) {
                     printf("updated client %d name to %s\n", sock,
                            client->name);
                 }
             } else {
-                process_message(buf, client, clients);
+                bool disconnected = false;
+                process_message(buf, client, clients, epollfd, &disconnected);
+                if (disconnected) {
+                    break;
+                }
             }
         } else if (nrecv == 0) {
             printf("client disconnected\n");
             Client* client = clients_get_by_socket(clients, sock);
             if (client) {
-                client_disconnect(client, clients);
+                client_disconnect(client, clients, epollfd);
             }
-            close(sock);
             break;
         } else {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -318,7 +337,7 @@ int main() {
                 }
                 clients_add(clients, cs, "");
             } else {
-                handle_request(events[i].data.fd, clients);
+                handle_request(events[i].data.fd, clients, epollfd);
             }
         }
     }
